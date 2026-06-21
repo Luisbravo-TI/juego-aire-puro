@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Atrapa el Aire Puro</title>
+<style>
+  :root{
+    --sky1:#cdeeff; --sky2:#e7f8ec; --green:#3f7a33; --green2:#6aa84f;
+    --sun:#f4c542; --ink:#22351c; --grey:#8f9a8a; --bad:#6f6f6f; --card:#ffffff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+    background:linear-gradient(180deg,var(--sky1),var(--sky2));
+    color:var(--ink); overflow:hidden; user-select:none; touch-action:none;
+    height:100dvh;
+  }
+  #app{position:relative;width:100%;height:100dvh;overflow:hidden;}
+
+  /* HUD */
+  #hud{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;
+    justify-content:space-between;align-items:center;padding:12px 16px;
+    font-weight:700;font-size:clamp(15px,4.5vw,22px);pointer-events:none;}
+  .chip{background:rgba(255,255,255,.78);border-radius:999px;padding:6px 14px;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);backdrop-filter:blur(4px);}
+  #hearts{letter-spacing:2px;}
+
+  /* lung meter */
+  #meterWrap{position:absolute;bottom:0;left:0;right:0;z-index:15;
+    display:flex;flex-direction:column;align-items:center;gap:4px;padding-bottom:14px;pointer-events:none;}
+  #lungs{font-size:clamp(34px,11vw,56px);filter:grayscale(.5);transition:filter .3s,transform .15s;}
+  #bar{width:min(82vw,420px);height:14px;background:rgba(255,255,255,.6);border-radius:999px;overflow:hidden;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.12);}
+  #fill{height:100%;width:0%;background:linear-gradient(90deg,var(--green2),var(--green));
+    border-radius:999px;transition:width .25s ease;}
+  #barLabel{font-size:12px;font-weight:700;color:var(--green);}
+
+  /* bubbles */
+  .bub{position:absolute;display:flex;align-items:center;justify-content:center;
+    font-size:var(--bs);width:calc(var(--bs) + 14px);height:calc(var(--bs) + 14px);
+    border-radius:50%;cursor:pointer;will-change:transform;z-index:10;
+    background:radial-gradient(circle at 30% 28%,rgba(255,255,255,.9),rgba(255,255,255,.35) 60%,rgba(255,255,255,0));}
+  .bub.bad{background:radial-gradient(circle at 30% 28%,rgba(150,150,150,.55),rgba(120,120,120,.18) 65%,rgba(0,0,0,0));}
+  .pop{animation:pop .28s ease forwards;}
+  @keyframes pop{to{transform:scale(1.6);opacity:0;}}
+
+  .float{position:absolute;font-weight:800;font-size:clamp(18px,5vw,26px);z-index:18;
+    pointer-events:none;animation:rise .7s ease forwards;}
+  @keyframes rise{to{transform:translateY(-46px);opacity:0;}}
+
+  .shake{animation:shake .3s;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+
+  /* overlays */
+  .screen{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px;
+    background:linear-gradient(180deg,rgba(205,238,255,.92),rgba(231,248,236,.96));backdrop-filter:blur(3px);}
+  .hidden{display:none!important;}
+  .leaf{font-size:clamp(48px,15vw,84px);line-height:1;}
+  h1{font-size:clamp(26px,8vw,44px);color:var(--green);line-height:1.05;}
+  h2{font-size:clamp(22px,6.5vw,34px);color:var(--green);}
+  p{font-size:clamp(15px,4.3vw,19px);max-width:30rem;color:#3a4a30;}
+  .small{font-size:13px;color:#5d6b50;}
+  button{font-family:inherit;font-weight:800;font-size:clamp(17px,5vw,22px);color:#fff;
+    background:linear-gradient(180deg,var(--green2),var(--green));border:none;border-radius:999px;
+    padding:14px 34px;cursor:pointer;box-shadow:0 6px 16px rgba(63,122,51,.35);transition:transform .1s;}
+  button:active{transform:translateY(2px) scale(.98);}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-weight:700;font-size:clamp(14px,4vw,18px);}
+  .legend div{background:#fff;border-radius:14px;padding:8px 14px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
+  .verse{font-style:italic;color:#3a4a30;background:#fff;border-left:4px solid var(--green2);
+    border-radius:0 10px 10px 0;padding:10px 14px;max-width:30rem;}
+  .vid{position:relative;display:block;width:min(92vw,560px);aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);background:#000;}
+  .vid iframe{width:100%;height:100%;border:0;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <span class="chip" id="levelChip">Nivel 1</span>
+    <span class="chip" id="scoreChip">0</span>
+    <span class="chip" id="hearts">❤️❤️❤️</span>
+  </div>
+
+  <div id="meterWrap">
+    <div id="lungs">🫁</div>
+    <div id="bar"><div id="fill"></div></div>
+    <div id="barLabel">Llena tus pulmones de aire puro</div>
+  </div>
+
+  <!-- START -->
+  <div class="screen" id="startScreen">
+    <div class="leaf">🌿</div>
+    <h1>Atrapa el Aire Puro</h1>
+    <p>Toca el <b>aire bueno</b> para llenar tus pulmones. <b>¡Evita la contaminación!</b></p>
+    <div class="legend">
+      <div>✅ Bueno: 🍃 💧 ☀️ 🫧</div>
+      <div>🚫 Malo: 🚬 💨 🏭</div>
+    </div>
+    <p class="small">3 niveles · para toda la familia</p>
+    <button id="startBtn">Jugar</button>
+  </div>
+
+  <!-- LEVEL CLEAR -->
+  <div class="screen hidden" id="levelScreen">
+    <div class="leaf">🎉</div>
+    <h2 id="levelTitle">¡Nivel completado!</h2>
+    <p id="levelMsg"></p>
+    <button id="nextBtn">Siguiente nivel</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="screen hidden" id="overScreen">
+    <div class="leaf">💨</div>
+    <h2>¡Casi! El aire se contaminó</h2>
+    <p>No pasa nada, respira hondo y vuelve a intentarlo.</p>
+    <button id="retryBtn">Intentar de nuevo</button>
+  </div>
+
+  <!-- WIN -->
+  <div class="screen hidden" id="winScreen">
+    <div class="leaf">🌳</div>
+    <h1>¡Pulmones llenos de vida!</h1>
+    <div class="verse">«Jehová Dios… sopló en su nariz aliento de vida, y fue el hombre un ser viviente.» — Génesis 2:7</div>
+    <p>Mira por qué el aire puro es un regalo de Dios para tu salud:</p>
+    <div class="vid">
+      <iframe src="https://www.youtube.com/embed/fsbefrgNieE?si=bb6megd0dc6sd5ho"
+        title="Aire Puro" frameborder="0" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe>
+    </div>
+    <p class="small">¿No carga aquí? Ábrelo en <a href="https://www.youtube.com/watch?v=fsbefrgNieE" target="_blank" rel="noopener" style="color:#3f7a33;font-weight:700">YouTube</a> (en Vercel se verá dentro del juego).</p>
+    <button id="playAgainBtn">Jugar otra vez</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const app=document.getElementById('app');
+  const scoreChip=document.getElementById('scoreChip');
+  const levelChip=document.getElementById('levelChip');
+  const heartsEl=document.getElementById('hearts');
+  const fill=document.getElementById('fill');
+  const lungs=document.getElementById('lungs');
+  const startScreen=document.getElementById('startScreen');
+  const levelScreen=document.getElementById('levelScreen');
+  const overScreen=document.getElementById('overScreen');
+  const winScreen=document.getElementById('winScreen');
+  const levelTitle=document.getElementById('levelTitle');
+  const levelMsg=document.getElementById('levelMsg');
+
+  const GOOD=['🍃','🌿','💧','☀️','🫧','🌳'];
+  const BAD =['🚬','💨','🏭','🛢️','🚗'];
+
+  // Niveles: para todas las edades. Sube velocidad y baja proporción de buenos.
+  const LEVELS=[
+    {spawn:1100, speed:0.16, good:0.82, target:8 , bs:42},
+    {spawn:850 , speed:0.24, good:0.72, target:12, bs:40},
+    {spawn:650 , speed:0.34, good:0.62, target:16, bs:38},
+  ];
+
+  let state='start', level=0, score=0, hearts=3, caught=0;
+  let bubbles=[], spawnTimer=0, lastT=0, raf=null, audio=null;
+
+  function beep(freq,dur,type){
+    try{
+      audio=audio||new (window.AudioContext||window.webkitAudioContext)();
+      const o=audio.createOscillator(),g=audio.createGain();
+      o.type=type||'sine';o.frequency.value=freq;o.connect(g);g.connect(audio.destination);
+      g.gain.setValueAtTime(0.15,audio.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+dur);
+      o.start();o.stop(audio.currentTime+dur);
+    }catch(e){}
+  }
+
+  function show(scr){[startScreen,levelScreen,overScreen,winScreen].forEach(s=>s.classList.add('hidden'));
+    if(scr)scr.classList.remove('hidden');}
+
+  function setHearts(){heartsEl.textContent='❤️'.repeat(hearts)+'🤍'.repeat(3-hearts);}
+  function setMeter(){const t=LEVELS[level].target;fill.style.width=Math.min(100,caught/t*100)+'%';
+    lungs.style.filter='grayscale('+Math.max(0,0.6-caught/t*0.6)+')';}
+
+  function clearBubbles(){bubbles.forEach(b=>b.el.remove());bubbles=[];}
+
+  function startLevel(){
+    score=score; caught=0; spawnTimer=0; lastT=performance.now();
+    levelChip.textContent='Nivel '+(level+1);
+    setMeter(); show(null); state='playing';
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(loop);
+  }
+
+  function spawn(){
+    const cfg=LEVELS[level];
+    const good=Math.random()<cfg.good;
+    const el=document.createElement('div');
+    el.className='bub'+(good?'':' bad');
+    el.style.setProperty('--bs',cfg.bs+'px');
+    el.textContent=(good?GOOD:BAD)[Math.floor(Math.random()*(good?GOOD.length:BAD.length))];
+    const size=cfg.bs+14;
+    const x=Math.random()*(app.clientWidth-size);
+    const y=app.clientHeight;           // arranca abajo y sube
+    const drift=(Math.random()-0.5)*0.4;
+    const b={el,good,x,y,drift,size};
+    el.style.left='0';el.style.top='0';
+    el.style.transform='translate('+x+'px,'+y+'px)';
+    el.addEventListener('pointerdown',ev=>{ev.preventDefault();popBubble(b);},{passive:false});
+    app.appendChild(el); bubbles.push(b);
+  }
+
+  function popBubble(b){
+    if(b.popped)return; b.popped=true;
+    if(b.good){
+      score++; caught++; scoreChip.textContent=score;
+      floatTxt('+1',b,'#3f7a33'); beep(660,0.12);
+      lungs.style.transform='scale(1.15)';setTimeout(()=>lungs.style.transform='',150);
+      setMeter();
+      if(caught>=LEVELS[level].target){levelClear();}
+    }else{
+      hearts--; setHearts(); floatTxt('−1',b,'#b03030'); beep(150,0.2,'sawtooth');
+      app.classList.add('shake');setTimeout(()=>app.classList.remove('shake'),300);
+      if(hearts<=0){gameOver();}
+    }
+    b.el.classList.add('pop');
+    setTimeout(()=>{b.el.remove();bubbles=bubbles.filter(x=>x!==b);},260);
+  }
+
+  function floatTxt(txt,b,color){
+    const f=document.createElement('div');f.className='float';f.textContent=txt;f.style.color=color;
+    f.style.left=b.x+'px';f.style.top=(b.y-30)+'px';app.appendChild(f);
+    setTimeout(()=>f.remove(),700);
+  }
+
+  function loop(t){
+    if(state!=='playing')return;
+    const dt=Math.min(50,t-lastT); lastT=t;
+    const cfg=LEVELS[level];
+    spawnTimer+=dt;
+    if(spawnTimer>=cfg.spawn){spawnTimer=0;spawn();}
+    const dy=cfg.speed*app.clientHeight*(dt/1000);
+    for(let i=bubbles.length-1;i>=0;i--){
+      const b=bubbles[i]; b.y-=dy; b.x+=b.drift;
+      if(b.x<0)b.x=0; if(b.x>app.clientWidth-b.size)b.x=app.clientWidth-b.size;
+      b.el.style.transform='translate('+b.x+'px,'+b.y+'px)';
+      if(b.y< -b.size){b.el.remove();bubbles.splice(i,1);}
+    }
+    raf=requestAnimationFrame(loop);
+  }
+
+  function levelClear(){
+    state='levelclear'; cancelAnimationFrame(raf); clearBubbles();
+    if(level>=LEVELS.length-1){ win(); return; }
+    levelTitle.textContent='¡Nivel '+(level+1)+' completado!';
+    levelMsg.textContent='Pulmones cada vez más sanos. Puntaje: '+score;
+    show(levelScreen);
+  }
+  function nextLevel(){level++; show(null); startLevel();}
+  function gameOver(){state='over';cancelAnimationFrame(raf);clearBubbles();show(overScreen);}
+  function win(){state='win';cancelAnimationFrame(raf);clearBubbles();show(winScreen);}
+
+  function fullReset(){level=0;score=0;hearts=3;caught=0;scoreChip.textContent=0;setHearts();}
+
+  document.getElementById('startBtn').onclick=()=>{fullReset();startLevel();};
+  document.getElementById('nextBtn').onclick=nextLevel;
+  document.getElementById('retryBtn').onclick=()=>{fullReset();startLevel();};
+  document.getElementById('playAgainBtn').onclick=()=>{fullReset();startLevel();};
+
+  setHearts();
+})();
+</script>
+</body>
+</html>
